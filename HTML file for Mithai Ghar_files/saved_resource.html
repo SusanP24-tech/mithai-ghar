@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+				
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<style>
+					body {
+						background-color: white; /* Ensure the iframe has a white background */
+					}
+				</style>
+				<script>
+					var Z_CDN_WHITELIST = [
+						'cdn.jsdelivr.net',
+						'cdnjs.cloudflare.com',
+						'cdn.tailwindcss.com',
+						'unpkg.com',
+						'fonts.googleapis.com',
+						'd3js.org',
+						'cdn.babylonjs.com',
+						'html2canvas.hertzen.com',
+						'code.jquery.com',
+						'cdn.datatables.net',
+						'kit.fontawesome.com',
+						'code.createjs.com',
+						'cdn.plot.ly',
+						'fonts.gstatic.com',
+						'www.rgraph.net',
+						'api.mapbox.com',
+						'polyfill.io',
+						'cdn.quilljs.com',
+						'picsum.photos',
+						'esm.sh'
+					];
+
+					function z_isUrlInWhitelist(url) {
+						if (!url || typeof url !== 'string') {
+							return false;
+						}
+						try {
+							const urlObj = new URL(url);
+							const hostname = urlObj.hostname;
+							return Z_CDN_WHITELIST.some(domain => hostname === domain);
+						} catch (e) {
+							return false;
+						}
+					}
+
+						function z_proxyCdnUrl(url) {
+						if (!url || !url.startsWith('http')) {
+							return url;
+						}
+							if (!z_isUrlInWhitelist(url)) {
+							return url;
+						}
+						if (!url.startsWith('https://artifacts-cdn.chatglm.site/')) {
+							return 'https://artifacts-cdn.chatglm.site/' + url;
+						}
+						return url;
+					}
+					
+					// 增强版外部链接拦截 - 适合放在模板字符串中
+					document.addEventListener('click', function (ev) {
+						try {
+							const anchor = ev.target?.closest?.('a[href]') || null;
+							if (!anchor) return;
+
+							let href = anchor.getAttribute('href')?.trim() || '';
+							if (!href) return;
+
+							if (href.startsWith('javascript:')) return;
+
+							// 新需求：href="#" 的链接完全阻止跳转和任何行为
+							if (href === '#') {
+								ev.preventDefault();
+								return;
+							}
+
+							// 处理其他内部锚点（如 #about、#contact 等）
+							if (href.startsWith('#')) {
+								const rawId = href.slice(1);
+								if (!rawId) return;
+
+								const id = decodeURIComponent(rawId);
+								const target = 
+									document.getElementById(id) ||
+									document.querySelector('a[name="' + id.replace(/"/g, '\"') + '"]') ||
+									document.querySelector('[name="' + id.replace(/"/g, '\"') + '"]');
+
+								if (target && target.scrollIntoView) {
+									ev.preventDefault();
+									try {
+										history.pushState(null, '', href);
+									} catch (e) {}
+									target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+								}
+								return;
+							}
+
+							// 处理外部链接
+							let url;
+							try {
+								url = new URL(href, window.location.href);
+							} catch (e) {
+								return;
+							}
+
+							if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+							const isExternal = url.hostname !== window.location.hostname;
+
+							if (isExternal || anchor.getAttribute('target') === '_blank') {
+								ev.preventDefault();
+								window.open(url.toString(), '_blank', 'noopener,noreferrer');
+							}
+
+						} catch (e) {
+							// 出错时不阻止默认行为
+						}
+					}, true);
+
+					// 1. 暴力清除函数：从 DOM 层面抹除 onclick 属性
+					var Z_removeInlineOnclick = function () {
+						// 专门锁定 href="#" 且带有 onclick 的 a 标签
+						const targetedLinks = document.querySelectorAll('a[href="#"][onclick]');
+						for (let i = 0; i < targetedLinks.length; i++) {
+							targetedLinks[i].removeAttribute('onclick');
+							targetedLinks[i].onclick = null; // 确保 JS 层的赋值也被清理
+						}
+					};
+					// 3. 动态监测：防止页面通过异步加载重新生成带 onclick 的元素
+					var z_observer = new MutationObserver(function () {
+						Z_removeInlineOnclick();
+					});
+
+					z_observer.observe(document.documentElement, {
+						childList: true,
+						subtree: true,
+						attributes: true,
+						attributeFilter: ['onclick']
+					});
+
+					// 4. 初始化执行一次
+					Z_removeInlineOnclick();
+
+					const Z_rawCreateElement = document.createElement;
+
+					document.createElement = function (tagName, ...args) {
+						const el = Z_rawCreateElement.call(this, tagName, ...args);
+
+						if (tagName.toLowerCase() === 'script') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let srcValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'src' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									srcValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'src', {
+								get: function() {
+									return srcValue || rawGetAttribute.call(this, 'src') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										srcValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'src', srcValue);
+									} else {
+										srcValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						if (tagName.toLowerCase() === 'link') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let hrefValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'href' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									hrefValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'href', {
+								get: function() {
+									return hrefValue || rawGetAttribute.call(this, 'href') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										hrefValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'href', hrefValue);
+									} else {
+										hrefValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						return el;
+					};
+
+					const Z_OriginalXMLHttpRequest = window.XMLHttpRequest;
+					window.XMLHttpRequest = function (...args) {
+						const xhr = new Z_OriginalXMLHttpRequest(...args);
+						const rawOpen = xhr.open;
+
+						xhr.open = function (method, url, ...rest) {
+							if (typeof url === 'string') {
+								const methodUpper = (method || '').toUpperCase();
+								if (methodUpper === 'GET' && z_isUrlInWhitelist(url)) {
+									url = z_proxyCdnUrl(url);
+								}
+							}
+							return rawOpen.call(this, method, url, ...rest);
+						};
+
+						return xhr;
+					};
+
+					window.XMLHttpRequest.prototype = Z_OriginalXMLHttpRequest.prototype;
+					Object.setPrototypeOf(window.XMLHttpRequest, Z_OriginalXMLHttpRequest);
+
+					const z_originalFetch = window.fetch;
+					window.fetch = async function (...args) {
+						if (args.length > 0) {
+							let url = '';
+							let method = 'GET';
+							
+							if (typeof args[0] === 'string') {
+								url = args[0];
+								if (args[1] && args[1].method) {
+									method = args[1].method.toUpperCase();
+								}
+								if (method === 'GET' && z_isUrlInWhitelist(url)) {
+									args[0] = z_proxyCdnUrl(url);
+								}
+							} else if (args[0] instanceof Request) {
+								const originalUrl = args[0].url;
+								method = (args[0].method || 'GET').toUpperCase();
+								if (method === 'GET' && z_isUrlInWhitelist(originalUrl)) {
+									const proxiedUrl = z_proxyCdnUrl(originalUrl);
+									if (proxiedUrl !== originalUrl) {
+										args[0] = new Request(proxiedUrl, args[0]);
+									}
+								}
+							}
+						}
+						return z_originalFetch.apply(this, args);
+					};
+				</script>
+			</head>
+			<body>
+				
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mithai Ghar — Sweet Shop Management</title>
+<script src="https://artifacts-cdn.chatglm.site/https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://artifacts-cdn.chatglm.site/https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://artifacts-cdn.chatglm.site/https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FEF7ED; --fg: #3E2723; --muted: #8D6E63; --accent: #E65100;
+    --accent-dark: #BF360C; --gold: #F9A825; --card: #FFFFFF; --border: #E0D5CC;
+    --success: #2E7D32; --danger: #C62828; --warning: #F57F17;
+    --sidebar: #3E2723; --sidebar-hover: #5D4037;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); }
+  .font-display { font-family: 'Cormorant Garamond', serif; }
+  #sidebar { width: 260px; min-height: 100vh; background: var(--sidebar); color: #fff; position: fixed; left: 0; top: 0; z-index: 40; transition: transform 0.3s; overflow-y: auto; }
+  #sidebar .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; font-size: 14px; }
+  #sidebar .nav-item:hover { background: var(--sidebar-hover); }
+  #sidebar .nav-item.active { background: var(--accent); border-left-color: var(--gold); }
+  #sidebar .nav-item i { width: 20px; text-align: center; }
+  #main { margin-left: 260px; min-height: 100vh; }
+  .kpi-card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: transform 0.2s, box-shadow 0.2s; }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .chart-card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table thead { background: #F5EDE4; }
+  .data-table th { padding: 10px 12px; text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .data-table td { padding: 10px 12px; border-top: 1px solid var(--border); }
+  .data-table tbody tr:hover { background: #FFF8F0; }
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: #F5EDE4; color: var(--fg); }
+  .btn-secondary:hover { background: #EDE0D4; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #B71C1C; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .form-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #fff; color: var(--fg); transition: border 0.2s; }
+  .form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(230,81,0,0.1); }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; display: block; text-transform: uppercase; letter-spacing: 0.3px; }
+  .badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
+  .badge-success { background: #E8F5E9; color: var(--success); }
+  .badge-danger { background: #FFEBEE; color: var(--danger); }
+  .badge-warning { background: #FFF8E1; color: var(--warning); }
+  .badge-info { background: #E3F2FD; color: #1565C0; }
+  #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+  #modal-overlay.show { display: flex; }
+  #modal-box { background: var(--card); border-radius: 16px; padding: 28px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  #toast-container { position: fixed; top: 20px; right: 20px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+  .toast { padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #fff; animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .toast-success { background: var(--success); }
+  .toast-error { background: var(--danger); }
+  .toast-warning { background: var(--warning); color: var(--fg); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+  .flow-step { text-align: center; flex: 1; min-width: 100px; }
+  .flow-arrow { color: var(--muted); font-size: 20px; display: flex; align-items: center; }
+  .flow-bar { height: 8px; border-radius: 4px; background: #E0D5CC; overflow: hidden; }
+  .flow-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .heatmap-cell { width: 100%; aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; cursor: default; transition: transform 0.15s; }
+  .heatmap-cell:hover { transform: scale(1.2); z-index: 2; }
+  .festival-card { border-left: 4px solid var(--gold); background: #FFFDE7; padding: 12px 16px; border-radius: 0 8px 8px 0; }
+  .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; border: none; background: transparent; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover { color: var(--fg); }
+  #hamburger { display: none; position: fixed; top: 12px; left: 12px; z-index: 45; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 12px; cursor: pointer; font-size: 18px; }
+  @media (max-width: 1024px) {
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #main { margin-left: 0; }
+    #hamburger { display: block; }
+    .flow-step { min-width: 80px; }
+  }
+  @media (max-width: 640px) {
+    .kpi-card { padding: 14px; }
+    .chart-card { padding: 14px; }
+    #page-content { padding: 12px !important; }
+    header { padding-left: 50px !important; }
+  }
+  .rank-num { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .rank-1 { background: #F9A825; } .rank-2 { background: #9E9E9E; } .rank-3 { background: #A1887F; } .rank-other { background: var(--muted); }
+  .season-alert { background: linear-gradient(135deg, #FFF8E1, #FFECB3); border: 1px solid #FFD54F; border-radius: 12px; padding: 16px 20px; }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #D7CCC8; border-radius: 3px; }
+  .pulse-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+
+
+
+<button id="hamburger" onclick="document.getElementById(&#39;sidebar&#39;).classList.toggle(&#39;open&#39;)">
+  <i class="fas fa-bars"></i>
+</button>
+
+<aside id="sidebar">
+  <div class="p-5 border-b border-white/10">
+    <div class="font-display text-2xl font-bold" style="color: var(--gold);">मिठाई घर</div>
+    <div class="text-xs mt-1 opacity-60">Sweet Shop Management System</div>
+  </div>
+  <nav class="py-3" id="nav-menu">
+    <div class="nav-item active" data-page="dashboard"><i class="fas fa-chart-pie"></i> Dashboard</div>
+    <div class="nav-item" data-page="production"><i class="fas fa-industry"></i> Production</div>
+    <div class="nav-item" data-page="supply"><i class="fas fa-truck"></i> Supply Chain</div>
+    <div class="nav-item" data-page="sales"><i class="fas fa-cash-register"></i> Sales</div>
+    <div class="nav-item" data-page="returns"><i class="fas fa-rotate-left"></i> Returns &amp; Waste</div>
+    <div class="nav-item" data-page="analytics"><i class="fas fa-chart-bar"></i> Analytics</div>
+    <div class="nav-item" data-page="seasonal"><i class="fas fa-sun"></i> Seasonal Guide</div>
+  </nav>
+  <div class="p-4 border-t border-white/10 text-xs opacity-50">
+    <div>Yogikuti • Devinagar • Golpark</div>
+    <div class="mt-1">Central Kitchen • Nepal</div>
+  </div>
+</aside>
+
+<div id="main">
+  <header class="sticky top-0 z-30 px-6 py-4 flex items-center justify-between flex-wrap gap-3" style="background: rgba(254,247,237,0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border);">
+    <div>
+      <h1 id="page-title" class="text-lg font-bold">Dashboard</h1>
+      <p id="page-subtitle" class="text-xs" style="color: var(--muted);">Overview of your sweet shop operations</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <input type="date" id="global-date" class="form-input" style="width:160px;">
+      <button class="btn btn-secondary btn-sm" onclick="exportData()"><i class="fas fa-download"></i> Export</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById(&#39;import-file&#39;).click()"><i class="fas fa-upload"></i> Import</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      <button class="btn btn-danger btn-sm" onclick="resetData()"><i class="fas fa-refresh"></i> Reset</button>
+    </div>
+  </header>
+  <div id="page-content" class="p-6"></div>
+</div>
+
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box"></div>
+</div>
+<div id="toast-container"></div>
+
+<script>
+/* ===== CONFIG — EDIT YOUR SWEETS AND OUTLETS HERE ===== */
+const SWEETS = [
+  { id:1,  name:'Gulab Jamun',      cat:'Milk-based',  base:15, cost:350, price:650  },
+  { id:2,  name:'Rasgulla',         cat:'Milk-based',  base:10, cost:300, price:600  },
+  { id:3,  name:'Kaju Katli',       cat:'Nut-based',   base:8,  cost:800, price:1400 },
+  { id:4,  name:'Barfi (Mixed)',    cat:'Milk-based',  base:12, cost:400, price:700  },
+  { id:5,  name:'Besan Laddu',      cat:'Flour-based', base:10, cost:350, price:600  },
+  { id:6,  name:'Motichoor Laddu',  cat:'Flour-based', base:8,  cost:400, price:750  },
+  { id:7,  name:'Peda',             cat:'Milk-based',  base:8,  cost:450, price:800  },
+  { id:8,  name:'Jalebi',           cat:'Fried',       base:12, cost:200, price:450  },
+  { id:9,  name:'Rasmalai',         cat:'Milk-based',  base:8,  cost:500, price:900  },
+  { id:10, name:'Gajar Halwa',      cat:'Seasonal',    base:6,  cost:350, price:650  },
+  { id:11, name:'Cham Cham',        cat:'Milk-based',  base:5,  cost:350, price:650  },
+  { id:12, name:'Soan Papdi',       cat:'Flour-based', base:10, cost:250, price:500  },
+  { id:13, name:'Kalakand',         cat:'Milk-based',  base:5,  cost:500, price:900  },
+  { id:14, name:'Malpua',           cat:'Fried',       base:4,  cost:250, price:500  },
+  { id:15, name:'Ghewar',           cat:'Seasonal',    base:2,  cost:300, price:600  },
+];
+
+const OUTLETS = [
+  { id:1, name:'Yogikuti',   code:'YGK', share:0.45 },
+  { id:2, name:'Devinagar',  code:'DVG', share:0.35 },
+  { id:3, name:'Golpark',    code:'GLP', share:0.20 },
+];
+
+/* Seasonal demand multiplier per sweet per month [Jan..Dec] */
+const SEASON = {
+  1:  [0.8,0.8,1.0,0.9,0.8,0.7,0.7,1.0,1.5,1.3,0.8,0.8],
+  2:  [0.7,0.7,0.9,0.8,0.8,0.9,1.1,1.0,1.2,1.3,0.9,0.8],
+  3:  [0.9,0.9,1.0,0.9,0.7,0.6,0.5,0.8,1.8,2.0,1.0,0.9],
+  4:  [0.8,0.8,0.9,0.8,0.7,0.6,0.6,0.9,1.5,1.4,0.9,0.8],
+  5:  [0.9,1.0,1.1,0.8,0.7,0.6,0.6,1.2,1.6,1.2,0.8,0.9],
+  6:  [0.8,0.9,1.0,0.8,0.7,0.5,0.5,1.0,1.8,1.8,0.9,0.8],
+  7:  [1.0,1.2,1.3,0.9,0.8,0.7,0.6,0.9,1.4,1.3,0.9,1.0],
+  8:  [0.8,0.8,0.9,0.9,0.8,0.8,0.8,0.9,1.2,1.1,0.9,0.8],
+  9:  [0.7,0.7,0.8,0.7,0.7,0.9,1.2,1.0,1.2,1.4,0.9,0.8],
+  10: [1.5,1.3,0.5,0.2,0.1,0.0,0.0,0.0,0.0,0.2,0.5,1.2],
+  11: [0.6,0.6,0.7,0.7,0.7,0.8,0.9,0.9,1.0,1.1,0.8,0.7],
+  12: [0.8,0.8,0.9,0.8,0.7,0.6,0.6,0.8,1.5,1.5,0.9,0.8],
+  13: [0.7,0.7,0.8,0.7,0.6,0.5,0.5,0.7,1.3,1.4,0.8,0.7],
+  14: [0.8,0.8,1.2,0.8,0.7,0.6,0.6,0.8,1.0,1.0,0.8,0.8],
+  15: [0.0,0.0,0.0,0.0,0.0,0.3,0.8,1.5,0.5,0.0,0.0,0.0],
+};
+
+const NEPALI_MONTHS = ['Poush','Magh','Falgun','Chaitra','Baisakh','Jestha','Ashadh','Shrawan','Bhadra','Ashwin','Kartik','Mangsir'];
+const ENG_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FULL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const FESTIVALS = [
+  { month:0, name:'Maghe Sankranti',   sweets:'Til Laddu, Chaku, Ghee sweets',                       demand:'Moderate' },
+  { month:1, name:'Maha Shivaratri',   sweets:'Peda, Barfi, Thandai items',                          demand:'High' },
+  { month:2, name:'Holi',              sweets:'Gujiya, Malpua, Gulab Jamun',                         demand:'High' },
+  { month:3, name:'Nepali New Year',   sweets:'Kaju Katli, Rasgulla, Barfi',                        demand:'Moderate' },
+  { month:4, name:'Buddha Jayanti',    sweets:'Peda, Laddu (vegetarian focus)',                      demand:'Low-Moderate' },
+  { month:7, name:'Teej',              sweets:'Ghewar, Laddu, Barfi',                                demand:'High' },
+  { month:8, name:'Dashain',           sweets:'Kaju Katli, Motichoor Laddu, Barfi, Peda — ALL peak', demand:'VERY HIGH' },
+  { month:9, name:'Tihar',             sweets:'Kaju Katli, Rasgulla, Peda, Soan Papdi — Gift boxes', demand:'VERY HIGH' },
+  { month:9, name:'Chhath',            sweets:'Thekua-style, Laddu, Peda',                           demand:'High' },
+  { month:10,name:'Constitution Day',  sweets:'Moderate celebration sweets',                        demand:'Low-Moderate' },
+];
+const WASTE_REASONS = ['Unsold','Expired','Damaged','Theft'];
+
+/* ===== DATA STORE ===== */
+let store = { production:[], supply:[], sales:[], returns:[] };
+const chartInstances = {};
+
+function saveStore() { localStorage.setItem('mithaiGhar_v2', JSON.stringify(store)); }
+function loadStore() {
+  try { const d = localStorage.getItem('mithaiGhar_v2'); if(d){ store=JSON.parse(d); return true; } } catch(e){}
+  return false;
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(store,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mithai-ghar-backup-'+todayStr()+'.json';
+  a.click();
+  showToast('Data exported successfully','success');
+}
+function importData(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if(data.production && data.supply && data.sales && data.returns) {
+        store = data;
+        saveStore();
+        renderPage(currentPage);
+        showToast('Data imported successfully','success');
+      } else { showToast('Invalid file format','error'); }
+    } catch(err) { showToast('Failed to parse file','error'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+let seed = 42;
+function srand() { seed=(seed*16807)%2147483647; return(seed-1)/2147483646; }
+
+function generateSampleData() {
+  seed=42;
+  store={production:[],supply:[],sales:[],returns:[]};
+  const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  for(let d=365;d>=0;d--){
+    const date=new Date(today); date.setDate(date.getDate()-d);
+    const ds=date.toISOString().split('T')[0], m=date.getMonth(), dow=date.getDay();
+    const wm=(dow===0||dow===6)?1.25:1.0, mw=(m>=5&&m<=7)?1.8:1.0;
+    SWEETS.forEach(sw=>{
+      const sm=SEASON[sw.id][m]; if(sm<=0) return;
+      const n=0.82+srand()*0.36, prod=Math.max(1,Math.round(sw.base*sm*wm*n));
+      store.production.push({date:ds,sweetId:sw.id,qty:prod});
+      let rem=prod;
+      OUTLETS.forEach((o,idx)=>{
+        const sup=idx===OUTLETS.length-1?rem:Math.max(0,Math.round(prod*o.share*(0.9+srand()*0.2)));
+        rem-=sup; if(sup<=0) return;
+        store.supply.push({date:ds,sweetId:sw.id,outletId:o.id,qty:sup});
+        const sr=0.90+srand()*0.08, sold=Math.max(0,Math.round(sup*sr));
+        store.sales.push({date:ds,sweetId:sw.id,outletId:o.id,qty:sold,revenue:sold*sw.price});
+        const wq=sup-sold;
+        if(wq>0){
+          const r=srand(); let reason;
+          if(r<0.6)reason='Unsold'; else if(r<0.8)reason='Expired'; else if(r<0.97*mw)reason='Damaged'; else reason='Theft';
+          const wa=Math.min(wq,Math.max(0,Math.round(wq*(0.5+srand()*0.5))));
+          if(wa>0) store.returns.push({date:ds,sweetId:sw.id,outletId:o.id,qty:wa,reason});
+        }
+      });
+    });
+  }
+  saveStore();
+}
+
+function resetData() {
+  openModal(`
+    <h3 class="font-bold text-lg mb-3" style="color:var(--danger)"><i class="fas fa-exclamation-triangle mr-2"></i>Reset All Data?</h3>
+    <p class="text-sm mb-4" style="color:var(--muted)">This will erase all your records and replace them with sample data. This cannot be undone. Consider exporting first.</p>
+    <div class="flex gap-3 justify-end">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmReset()">Yes, Reset Everything</button>
+    </div>
+  `);
+}
+function confirmReset() {
+  closeModal();
+  localStorage.removeItem('mithaiGhar_v2');
+  generateSampleData();
+  renderPage(currentPage);
+  showToast('Data reset to sample values','success');
+}
+
+/* ===== UTILITY ===== */
+function fmt(n){return new Intl.NumberFormat('en-NP').format(n);}
+function fmtRs(n){return 'Rs. '+fmt(n);}
+function getSweet(id){return SWEETS.find(s=>s.id===id);}
+function getOutlet(id){return OUTLETS.find(o=>o.id===id);}
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function getMonthYear(ds){const d=new Date(ds);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function filterByDate(a,ds){return a.filter(r=>r.date===ds);}
+function filterByMonth(a,my){return a.filter(r=>getMonthYear(r.date)===my);}
+function filterByYear(a,y){return a.filter(r=>r.date.startsWith(y));}
+function sumQty(a){return a.reduce((s,r)=>s+r.qty,0);}
+function sumRev(a){return a.reduce((s,r)=>s+(r.revenue||0),0);}
+function getMonthStr(my){const[y,m]=my.split('-').map(Number);return FULL_MONTHS[m-1]+' '+y;}
+
+function showToast(msg,type='success'){
+  const c=document.getElementById('toast-container'),t=document.createElement('div');
+  t.className='toast toast-'+type;t.textContent=msg;c.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+function openModal(html){document.getElementById('modal-box').innerHTML=html;document.getElementById('modal-overlay').classList.add('show');}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
+
+function makeChart(id,cfg){
+  if(chartInstances[id])chartInstances[id].destroy();
+  const el=document.getElementById(id); if(!el)return null;
+  chartInstances[id]=new Chart(el,cfg); return chartInstances[id];
+}
+const CC=['#E65100','#F9A825','#2E7D32','#1565C0','#6A1B9A','#C62828','#00838F','#4E342E','#AD1457','#1B5E20','#FF6F00','#283593','#BF360C','#00695C','#880E4F'];
+
+/* ===== NAVIGATION ===== */
+let currentPage='dashboard';
+document.getElementById('nav-menu').addEventListener('click',e=>{
+  const item=e.target.closest('.nav-item'); if(!item)return;
+  navigateTo(item.dataset.page);
+});
+function navigateTo(p){
+  currentPage=p;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${p}"]`).classList.add('active');
+  document.getElementById('sidebar').classList.remove('open');
+  renderPage(p);
+}
+const TITLES={
+  dashboard:['Dashboard','Overview of your sweet shop operations'],
+  production:['Production','Record and track daily production at central kitchen'],
+  supply:['Supply Chain','Track dispatch from kitchen to outlets'],
+  sales:['Sales','Record daily sales across all outlets'],
+  returns:['Returns & Waste','Track unsold, expired, damaged items and theft'],
+  analytics:['Analytics','Deep-dive into performance data and trends'],
+  seasonal:['Seasonal Guide','Nepal-specific seasonal demand patterns and festival insights'],
+};
+function renderPage(p){
+  const[t,s]=TITLES[p];
+  document.getElementById('page-title').textContent=t;
+  document.getElementById('page-subtitle').textContent=s;
+  const c=document.getElementById('page-content');
+  ({dashboard:renderDashboard,production:renderProduction,supply:renderSupply,sales:renderSales,returns:renderReturns,analytics:renderAnalytics,seasonal:renderSeasonal})[p](c);
+}
+
+/* ===== DASHBOARD ===== */
+function renderDashboard(c){
+  const td=todayStr(),tm=getMonthYear(td);
+  const tp=sumQty(filterByDate(store.production,td)),ts=sumRev(filterByDate(store.sales,td));
+  const mp=sumQty(filterByMonth(store.production,tm)),ms=sumRev(filterByMonth(store.sales,tm));
+  const mr=sumQty(filterByMonth(store.returns,tm)),msup=sumQty(filterByMonth(store.supply,tm));
+  const msold=sumQty(filterByMonth(store.sales,tm));
+  const wr=msup>0?((mr/msup)*100).toFixed(1):0, ur=msup>0?((msold/msup)*100).toFixed(1):0;
+  const tq=sumQty(filterByMonth(store.returns,tm).filter(r=>r.reason==='Theft'));
+  const tr=msup>0?((tq/msup)*100).toFixed(2):0;
+  const sms={};filterByMonth(store.sales,tm).forEach(r=>{sms[r.sweetId]=(sms[r.sweetId]||0)+r.qty;});
+  const t5=Object.entries(sms).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const ost=OUTLETS.map(o=>({name:o.name,val:sumRev(filterByDate(store.sales,td).filter(r=>r.outletId===o.id))}));
+  const wbr={};filterByMonth(store.returns,tm).forEach(r=>{wbr[r.reason]=(wbr[r.reason]||0)+r.qty;});
+  const lm=[],lr=[],lw=[];
+  for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);const my=getMonthYear(d.toISOString());lm.push(ENG_MONTHS[d.getMonth()]);lr.push(sumRev(filterByMonth(store.sales,my)));lw.push(sumQty(filterByMonth(store.returns,my)));}
+
+  c.innerHTML=`
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="kpi-card"><div class="flex items-center justify-between mb-2"><span class="text-xs font-semibold uppercase" style="color:var(--muted)">Today's Production</span><div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:#FFF3E0"><i class="fas fa-industry" style="color:var(--accent)"></i></div></div><div class="text-2xl font-bold">${fmt(tp)} <span class="text-sm font-normal" style="color:var(--muted)">kg</span></div><div class="text-xs mt-1" style="color:var(--muted)">Monthly: ${fmt(mp)} kg</div></div>
+      <div class="kpi-card"><div class="flex items-center justify-between mb-2"><span class="text-xs font-semibold uppercase" style="color:var(--muted)">Monthly Revenue</span><div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:#E8F5E9"><i class="fas fa-indian-rupee-sign" style="color:var(--success)"></i></div></div><div class="text-2xl font-bold">${fmtRs(ms)}</div><div class="text-xs mt-1" style="color:var(--muted)">Today: ${fmtRs(ts)}</div></div>
+      <div class="kpi-card"><div class="flex items-center justify-between mb-2"><span class="text-xs font-semibold uppercase" style="color:var(--muted)">Waste Rate</span><div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:${parseFloat(wr)>5?'#FFEBEE':'#E8F5E9'}"><i class="fas fa-trash" style="color:${parseFloat(wr)>5?'var(--danger)':'var(--success)'}"></i></div></div><div class="text-2xl font-bold" style="color:${parseFloat(wr)>5?'var(--danger)':'var(--fg)'}">${wr}%</div><div class="text-xs mt-1" style="color:var(--muted)">Theft: ${tr}% (${fmt(tq)} kg)</div></div>
+      <div class="kpi-card"><div class="flex items-center justify-between mb-2"><span class="text-xs font-semibold uppercase" style="color:var(--muted)">Utilization Rate</span><div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:#E3F2FD"><i class="fas fa-chart-line" style="color:#1565C0"></i></div></div><div class="text-2xl font-bold">${ur}%</div><div class="text-xs mt-1" style="color:var(--muted)">${fmt(msold)} / ${fmt(msup)} kg supplied</div></div>
+    </div>
+    <div class="chart-card mb-6"><h3 class="text-sm font-bold mb-4"><i class="fas fa-link mr-2" style="color:var(--accent)"></i>Supply Chain Flow — This Month</h3><div class="flex items-center gap-2 flex-wrap">
+      <div class="flow-step"><div class="text-2xl font-bold" style="color:var(--accent)">${fmt(mp)}</div><div class="text-xs font-semibold" style="color:var(--muted)">PRODUCED (kg)</div><div class="flow-bar mt-2" style="width:110px;margin:0 auto"><div class="flow-bar-fill" style="width:100%;background:var(--accent)"></div></div></div>
+      <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+      <div class="flow-step"><div class="text-2xl font-bold" style="color:#1565C0">${fmt(msup)}</div><div class="text-xs font-semibold" style="color:var(--muted)">SUPPLIED</div><div class="flow-bar mt-2" style="width:110px;margin:0 auto"><div class="flow-bar-fill" style="width:${mp>0?(msup/mp*100):0}%;background:#1565C0"></div></div><div class="text-xs mt-1" style="color:var(--muted)">${mp>0?(msup/mp*100).toFixed(1):0}%</div></div>
+      <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+      <div class="flow-step"><div class="text-2xl font-bold" style="color:var(--success)">${fmt(msold)}</div><div class="text-xs font-semibold" style="color:var(--muted)">SOLD</div><div class="flow-bar mt-2" style="width:110px;margin:0 auto"><div class="flow-bar-fill" style="width:${msup>0?(msold/msup*100):0}%;background:var(--success)"></div></div><div class="text-xs mt-1" style="color:var(--muted)">${ur}%</div></div>
+      <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+      <div class="flow-step"><div class="text-2xl font-bold" style="color:var(--danger)">${fmt(mr)}</div><div class="text-xs font-semibold" style="color:var(--muted)">WASTE</div><div class="flow-bar mt-2" style="width:110px;margin:0 auto"><div class="flow-bar-fill" style="width:${msup>0?(mr/msup*100):0}%;background:var(--danger)"></div></div><div class="text-xs mt-1" style="color:var(--muted)">${wr}%</div></div>
+    </div></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="chart-card lg:col-span-2"><h3 class="text-sm font-bold mb-3"><i class="fas fa-chart-area mr-2" style="color:var(--accent)"></i>Revenue vs Waste (Last 6 Months)</h3><canvas id="dashTrend" height="200"></canvas></div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3"><i class="fas fa-store mr-2" style="color:var(--accent)"></i>Today by Outlet</h3><canvas id="dashOutlet" height="200"></canvas></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3"><i class="fas fa-trophy mr-2" style="color:var(--gold)"></i>Top 5 Sweets This Month</h3><canvas id="dashTop5" height="180"></canvas></div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3"><i class="fas fa-exclamation-triangle mr-2" style="color:var(--danger)"></i>Waste Breakdown</h3><canvas id="dashWaste" height="180"></canvas></div>
+    </div>
+    ${parseFloat(tr)>0.3?`<div class="chart-card mb-4" style="border-left:4px solid var(--danger);background:#FFF5F5"><div class="flex items-center gap-3"><span class="pulse-dot" style="background:var(--danger)"></span><div><div class="font-bold text-sm" style="color:var(--danger)">Theft Alert</div><div class="text-xs" style="color:var(--muted)">${fmt(tq)} kg reported as theft this month (${tr}% of supply). Check Returns & Waste for details.</div></div></div></div>`:''}`;
+
+  makeChart('dashTrend',{type:'line',data:{labels:lm,datasets:[
+    {label:'Revenue (Rs)',data:lr,borderColor:'#E65100',backgroundColor:'rgba(230,81,0,0.1)',fill:true,tension:0.4,pointRadius:4,pointBackgroundColor:'#E65100'},
+    {label:'Waste (kg)',data:lw,borderColor:'#C62828',backgroundColor:'rgba(198,40,40,0.1)',fill:true,tension:0.4,pointRadius:4,pointBackgroundColor:'#C62828',yAxisID:'y1'}
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtRs(v),font:{size:10}}},y1:{position:'right',beginAtZero:true,grid:{drawOnChartArea:false},ticks:{callback:v=>v+' kg',font:{size:10}}},x:{ticks:{font:{size:11}}}}}});
+  makeChart('dashOutlet',{type:'doughnut',data:{labels:ost.map(o=>o.name),datasets:[{data:ost.map(o=>o.val||1),backgroundColor:['#E65100','#F9A825','#2E7D32'],borderWidth:0}]},options:{responsive:true,cutout:'60%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
+  makeChart('dashTop5',{type:'bar',data:{labels:t5.map(t=>getSweet(Number(t[0]))?.name||''),datasets:[{label:'Qty (kg)',data:t5.map(t=>t[1]),backgroundColor:CC.slice(0,5),borderRadius:6,barThickness:28}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{font:{size:10}}},y:{ticks:{font:{size:11}}}}}});
+  const wl=Object.keys(wbr),wd=Object.values(wbr);
+  makeChart('dashWaste',{type:'pie',data:{labels:wl.length?wl:['No waste'],datasets:[{data:wd.length?wd:[1],backgroundColor:wl.length?['#8D6E63','#F57F17','#C62828','#6A1B9A']:['#E0D5CC'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
+}
+
+/* ===== PRODUCTION ===== */
+function renderProduction(c){
+  const td=todayStr(),tm=getMonthYear(td);
+  const recs=filterByDate(store.production,td),mrecs=filterByMonth(store.production,tm);
+  const ms={};mrecs.forEach(r=>{ms[r.sweetId]=(ms[r.sweetId]||0)+r.qty;});
+  const sorted=Object.entries(ms).sort((a,b)=>b[1]-a[1]);
+  const total=sorted.reduce((a,b)=>a+b[1],0);
+  c.innerHTML=`
+    <div class="chart-card mb-6"><h3 class="text-sm font-bold mb-3"><i class="fas fa-plus-circle mr-2" style="color:var(--accent)"></i>Add Production Entry</h3>
+      <form id="prod-form" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div><label class="form-label">Date</label><input type="date" class="form-input" id="pf-date" value="${td}"></div>
+        <div><label class="form-label">Sweet</label><select class="form-input" id="pf-sweet">${SWEETS.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>
+        <div><label class="form-label">Quantity (kg)</label><input type="number" class="form-input" id="pf-qty" min="0.5" step="0.5" required></div>
+        <div><button type="submit" class="btn btn-primary w-full"><i class="fas fa-plus"></i> Add</button></div>
+      </form>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Today's Production</h3>${recs.length?`<table class="data-table"><thead><tr><th>Sweet</th><th>Qty (kg)</th><th></th></tr></thead><tbody>${recs.map((r,i)=>`<tr><td>${getSweet(r.sweetId).name}</td><td>${r.qty}</td><td><button class="btn btn-danger btn-sm" onclick="delRec('production',${i},'${td}')"><i class="fas fa-trash"></i></button></td></tr>`).join('')}</tbody></table>`:'<p class="text-sm" style="color:var(--muted)">No production recorded today</p>'}</div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Monthly Ranking — ${getMonthStr(tm)}</h3><table class="data-table"><thead><tr><th>#</th><th>Sweet</th><th>Total (kg)</th><th>Share</th></tr></thead><tbody>${sorted.map((s,i)=>`<tr><td><span class="rank-num ${i<3?'rank-'+(i+1):'rank-other'}">${i+1}</span></td><td>${getSweet(Number(s[0])).name}</td><td class="font-semibold">${fmt(s[1])}</td><td>${total>0?(s[1]/total*100).toFixed(1):0}%</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="chart-card"><h3 class="text-sm font-bold mb-3">Monthly Production Trend</h3><canvas id="prodTrend" height="180"></canvas></div>`;
+  const lb=[],dt=[];for(let i=11;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);const my=getMonthYear(d.toISOString());lb.push(ENG_MONTHS[d.getMonth()]);dt.push(sumQty(filterByMonth(store.production,my)));}
+  makeChart('prodTrend',{type:'bar',data:{labels:lb,datasets:[{label:'kg',data:dt,backgroundColor:'rgba(230,81,0,0.7)',borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{font:{size:10}}},x:{ticks:{font:{size:10}}}}}});
+  document.getElementById('prod-form').onsubmit=e=>{e.preventDefault();const date=document.getElementById('pf-date').value,sid=Number(document.getElementById('pf-sweet').value),qty=parseFloat(document.getElementById('pf-qty').value);if(!date||!qty||qty<=0){showToast('Fill all fields','error');return;}store.production.push({date,sweetId:sid,qty});saveStore();showToast(`Added ${qty} kg ${getSweet(sid).name}`);renderProduction(c);};
+}
+
+/* ===== SUPPLY ===== */
+function renderSupply(c){
+  const td=todayStr(),tm=getMonthYear(td);
+  const recs=filterByDate(store.supply,td),msup=filterByMonth(store.supply,tm);
+  const mp=sumQty(filterByMonth(store.production,tm)),ms=sumQty(msup);
+  const os=OUTLETS.map(o=>({...o,supplied:sumQty(msup.filter(r=>r.outletId===o.id)),sold:sumQty(filterByMonth(store.sales,tm).filter(r=>r.outletId===o.id)),returned:sumQty(filterByMonth(store.returns,tm).filter(r=>r.outletId===o.id))}));
+  c.innerHTML=`
+    <div class="chart-card mb-6"><h3 class="text-sm font-bold mb-3"><i class="fas fa-truck mr-2" style="color:var(--accent)"></i>Dispatch to Outlet</h3>
+      <form id="supply-form" class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+        <div><label class="form-label">Date</label><input type="date" class="form-input" id="sf-date" value="${td}"></div>
+        <div><label class="form-label">Sweet</label><select class="form-input" id="sf-sweet">${SWEETS.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>
+        <div><label class="form-label">Outlet</label><select class="form-input" id="sf-outlet">${OUTLETS.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select></div>
+        <div><label class="form-label">Qty (kg)</label><input type="number" class="form-input" id="sf-qty" min="0.5" step="0.5" required></div>
+        <div><button type="submit" class="btn btn-primary w-full"><i class="fas fa-paper-plane"></i> Dispatch</button></div>
+      </form>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Monthly Production</div><div class="text-xl font-bold mt-1">${fmt(mp)} kg</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Monthly Supplied</div><div class="text-xl font-bold mt-1" style="color:#1565C0">${fmt(ms)} kg</div><div class="text-xs" style="color:var(--muted)">${mp>0?(ms/mp*100).toFixed(1):0}% dispatched</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Kitchen Holding</div><div class="text-xl font-bold mt-1" style="color:var(--warning)">${fmt(Math.max(0,mp-ms))} kg</div></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Outlet Performance — ${getMonthStr(tm)}</h3><table class="data-table"><thead><tr><th>Outlet</th><th>Supplied</th><th>Sold</th><th>Waste</th><th>Util.</th></tr></thead><tbody>${os.map(o=>`<tr><td class="font-semibold">${o.name}</td><td>${fmt(o.supplied)}</td><td style="color:var(--success)">${fmt(o.sold)}</td><td style="color:var(--danger)">${fmt(o.returned)}</td><td><span class="badge ${o.supplied>0&&(o.sold/o.supplied*100)>93?'badge-success':'badge-warning'}">${o.supplied>0?(o.sold/o.supplied*100).toFixed(1):0}%</span></td></tr>`).join('')}</tbody></table></div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Today's Dispatches</h3>${recs.length?`<div style="max-height:300px;overflow-y:auto"><table class="data-table"><thead><tr><th>Sweet</th><th>Outlet</th><th>Qty</th><th></th></tr></thead><tbody>${recs.map((r,i)=>`<tr><td>${getSweet(r.sweetId).name}</td><td>${getOutlet(r.outletId).name}</td><td>${r.qty} kg</td><td><button class="btn btn-danger btn-sm" onclick="delRec('supply',${i},'${td}')"><i class="fas fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`:'<p class="text-sm" style="color:var(--muted)">No dispatches today</p>'}</div>
+    </div>
+    <div class="chart-card"><h3 class="text-sm font-bold mb-3">Supply by Outlet (Monthly)</h3><canvas id="supplyChart" height="160"></canvas></div>`;
+  const lb=[],d1=[],d2=[],d3=[];for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);const my=getMonthYear(d.toISOString());lb.push(ENG_MONTHS[d.getMonth()]);d1.push(sumQty(filterByMonth(store.supply,my).filter(r=>r.outletId===1)));d2.push(sumQty(filterByMonth(store.supply,my).filter(r=>r.outletId===2)));d3.push(sumQty(filterByMonth(store.supply,my).filter(r=>r.outletId===3)));}
+  makeChart('supplyChart',{type:'bar',data:{labels:lb,datasets:[{label:'Yogikuti',data:d1,backgroundColor:'rgba(230,81,0,0.8)',borderRadius:4},{label:'Devinagar',data:d2,backgroundColor:'rgba(249,168,37,0.8)',borderRadius:4},{label:'Golpark',data:d3,backgroundColor:'rgba(46,125,50,0.8)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:10}}}}}});
+  document.getElementById('supply-form').onsubmit=e=>{e.preventDefault();const date=document.getElementById('sf-date').value,sid=Number(document.getElementById('sf-sweet').value),oid=Number(document.getElementById('sf-outlet').value),qty=parseFloat(document.getElementById('sf-qty').value);if(!date||!qty||qty<=0){showToast('Fill all fields','error');return;}store.supply.push({date,sweetId:sid,outletId:oid,qty});saveStore();showToast(`Dispatched ${qty} kg ${getSweet(sid).name} to ${getOutlet(oid).name}`);renderSupply(c);};
+}
+
+/* ===== SALES ===== */
+function renderSales(c){
+  const td=todayStr(),tm=getMonthYear(td);
+  const recs=filterByDate(store.sales,td),ms=filterByMonth(store.sales,tm);
+  const tr=sumRev(ms),tq=sumQty(ms);
+  const sr={};ms.forEach(r=>{if(!sr[r.sweetId])sr[r.sweetId]={qty:0,rev:0};sr[r.sweetId].qty+=r.qty;sr[r.sweetId].rev+=r.revenue;});
+  const srank=Object.entries(sr).sort((a,b)=>b[1].rev-a[1].rev);
+  c.innerHTML=`
+    <div class="chart-card mb-6"><h3 class="text-sm font-bold mb-3"><i class="fas fa-cash-register mr-2" style="color:var(--accent)"></i>Record Sale</h3>
+      <form id="sales-form" class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
+        <div><label class="form-label">Date</label><input type="date" class="form-input" id="sl-date" value="${td}"></div>
+        <div><label class="form-label">Sweet</label><select class="form-input" id="sl-sweet" onchange="calcSR()">${SWEETS.map(s=>`<option value="${s.id}">${s.name} (Rs.${s.price}/kg)</option>`).join('')}</select></div>
+        <div><label class="form-label">Outlet</label><select class="form-input" id="sl-outlet">${OUTLETS.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select></div>
+        <div><label class="form-label">Qty (kg)</label><input type="number" class="form-input" id="sl-qty" min="0.1" step="0.1" required oninput="calcSR()"></div>
+        <div><label class="form-label">Revenue (Rs)</label><input type="number" class="form-input" id="sl-rev" readonly></div>
+        <div><button type="submit" class="btn btn-primary w-full"><i class="fas fa-check"></i> Save</button></div>
+      </form>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Monthly Revenue</div><div class="text-xl font-bold mt-1" style="color:var(--success)">${fmtRs(tr)}</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Monthly Qty Sold</div><div class="text-xl font-bold mt-1">${fmt(tq)} kg</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Avg Price/kg</div><div class="text-xl font-bold mt-1">${tq>0?fmtRs(Math.round(tr/tq)):'N/A'}</div></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Today's Sales</h3>${recs.length?`<div style="max-height:300px;overflow-y:auto"><table class="data-table"><thead><tr><th>Sweet</th><th>Outlet</th><th>Qty</th><th>Revenue</th></tr></thead><tbody>${recs.slice(0,30).map(r=>`<tr><td>${getSweet(r.sweetId).name}</td><td>${getOutlet(r.outletId).name}</td><td>${r.qty}</td><td class="font-semibold" style="color:var(--success)">${fmtRs(r.revenue)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-sm" style="color:var(--muted)">No sales recorded today</p>'}</div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Revenue by Sweet — ${getMonthStr(tm)}</h3><table class="data-table"><thead><tr><th>#</th><th>Sweet</th><th>Qty</th><th>Revenue</th><th>Share</th></tr></thead><tbody>${srank.slice(0,10).map((s,i)=>`<tr><td><span class="rank-num ${i<3?'rank-'+(i+1):'rank-other'}">${i+1}</span></td><td>${getSweet(Number(s[0])).name}</td><td>${fmt(s[1].qty)}</td><td class="font-semibold">${fmtRs(s[1].rev)}</td><td>${tr>0?(s[1].rev/tr*100).toFixed(1):0}%</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="chart-card"><h3 class="text-sm font-bold mb-3">Revenue by Sweet (Top 8)</h3><canvas id="salesChart" height="180"></canvas></div>`;
+  const t8=srank.slice(0,8);
+  makeChart('salesChart',{type:'bar',data:{labels:t8.map(s=>getSweet(Number(s[0])).name),datasets:[{label:'Rs',data:t8.map(s=>s[1].rev),backgroundColor:CC.slice(0,8),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtRs(v),font:{size:10}}},x:{ticks:{font:{size:10},maxRotation:45}}}}});
+  window.calcSR=()=>{const sid=Number(document.getElementById('sl-sweet').value),qty=parseFloat(document.getElementById('sl-qty').value)||0;document.getElementById('sl-rev').value=Math.round(qty*getSweet(sid).price);};calcSR();
+  document.getElementById('sales-form').onsubmit=e=>{e.preventDefault();const date=document.getElementById('sl-date').value,sid=Number(document.getElementById('sl-sweet').value),oid=Number(document.getElementById('sl-outlet').value),qty=parseFloat(document.getElementById('sl-qty').value),rev=Number(document.getElementById('sl-rev').value);if(!date||!qty||qty<=0||!rev){showToast('Fill all fields','error');return;}store.sales.push({date,sweetId:sid,outletId:oid,qty,revenue:rev});saveStore();showToast(`Sale: ${qty} kg ${getSweet(sid).name} at ${getOutlet(oid).name}`);renderSales(c);};
+}
+
+/* ===== RETURNS ===== */
+function renderReturns(c){
+  const td=todayStr(),tm=getMonthYear(td);
+  const recs=filterByDate(store.returns,td),mret=filterByMonth(store.returns,tm);
+  const br={};WASTE_REASONS.forEach(r=>br[r]=0);mret.forEach(r=>br[r.reason]+=r.qty);
+  const bo=OUTLETS.map(o=>({...o,total:sumQty(mret.filter(r=>r.outletId===o.id)),theft:sumQty(mret.filter(r=>r.outletId===o.id&&r.reason==='Theft')),unsold:sumQty(mret.filter(r=>r.outletId===o.id&&r.reason==='Unsold')),expired:sumQty(mret.filter(r=>r.outletId===o.id&&r.reason==='Expired')),damaged:sumQty(mret.filter(r=>r.outletId===o.id&&r.reason==='Damaged'))}));
+  const bs={};mret.forEach(r=>{bs[r.sweetId]=(bs[r.sweetId]||0)+r.qty;});
+  const bsr=Object.entries(bs).sort((a,b)=>b[1]-a[1]);
+  let lv=0;mret.forEach(r=>lv+=r.qty*getSweet(r.sweetId).cost);
+  c.innerHTML=`
+    <div class="chart-card mb-6" style="border-left:4px solid var(--danger)"><h3 class="text-sm font-bold mb-3"><i class="fas fa-rotate-left mr-2" style="color:var(--danger)"></i>Record Return / Waste / Theft</h3>
+      <form id="ret-form" class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
+        <div><label class="form-label">Date</label><input type="date" class="form-input" id="rf-date" value="${td}"></div>
+        <div><label class="form-label">Sweet</label><select class="form-input" id="rf-sweet">${SWEETS.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>
+        <div><label class="form-label">Outlet</label><select class="form-input" id="rf-outlet">${OUTLETS.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select></div>
+        <div><label class="form-label">Qty (kg)</label><input type="number" class="form-input" id="rf-qty" min="0.1" step="0.1" required></div>
+        <div><label class="form-label">Reason</label><select class="form-input" id="rf-reason">${WASTE_REASONS.map(r=>`<option value="${r}">${r}</option>`).join('')}</select></div>
+        <div><button type="submit" class="btn btn-danger w-full"><i class="fas fa-exclamation"></i> Report</button></div>
+      </form>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Total Waste</div><div class="text-xl font-bold mt-1" style="color:var(--danger)">${fmt(sumQty(mret))} kg</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Loss Value (cost)</div><div class="text-xl font-bold mt-1" style="color:var(--danger)">${fmtRs(lv)}</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Theft</div><div class="text-xl font-bold mt-1" style="color:#6A1B9A">${fmt(br.Theft)} kg</div></div>
+      <div class="kpi-card text-center"><div class="text-xs font-semibold uppercase" style="color:var(--muted)">Unsold</div><div class="text-xl font-bold mt-1" style="color:var(--warning)">${fmt(br.Unsold)} kg</div></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Waste by Outlet — ${getMonthStr(tm)}</h3><table class="data-table"><thead><tr><th>Outlet</th><th>Unsold</th><th>Expired</th><th>Damaged</th><th>Theft</th><th>Total</th></tr></thead><tbody>${bo.map(o=>`<tr><td class="font-semibold">${o.name}</td><td>${o.unsold}</td><td>${o.expired}</td><td>${o.damaged}</td><td style="color:#6A1B9A;font-weight:600">${o.theft}</td><td class="font-bold" style="color:var(--danger)">${o.total}</td></tr>`).join('')}</tbody></table></div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3">Highest Waste Sweets</h3><table class="data-table"><thead><tr><th>#</th><th>Sweet</th><th>Waste (kg)</th><th>Loss (Rs)</th></tr></thead><tbody>${bsr.slice(0,8).map((s,i)=>`<tr><td>${i+1}</td><td>${getSweet(Number(s[0])).name}</td><td class="font-semibold" style="color:var(--danger)">${s[1]}</td><td>${fmtRs(s[1]*getSweet(Number(s[0])).cost)}</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="chart-card"><h3 class="text-sm font-bold mb-3">Waste Rate Trend (Last 6 Months)</h3><canvas id="wasteTrendChart" height="160"></canvas></div>`;
+  const lb=[],wr=[],tr2=[];for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);const my=getMonthYear(d.toISOString());lb.push(ENG_MONTHS[d.getMonth()]);const sup=sumQty(filterByMonth(store.supply,my)),ret=sumQty(filterByMonth(store.returns,my)),th=sumQty(filterByMonth(store.returns,my).filter(r=>r.reason==='Theft'));wr.push(sup>0?(ret/sup*100).toFixed(1):0);tr2.push(sup>0?(th/sup*100).toFixed(2):0);}
+  makeChart('wasteTrendChart',{type:'line',data:{labels:lb,datasets:[{label:'Total Waste %',data:wr,borderColor:'#C62828',backgroundColor:'rgba(198,40,40,0.1)',fill:true,tension:0.4,pointRadius:4},{label:'Theft %',data:tr2,borderColor:'#6A1B9A',backgroundColor:'rgba(106,27,154,0.1)',fill:true,tension:0.4,pointRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%',font:{size:10}}},x:{ticks:{font:{size:10}}}}}});
+  document.getElementById('ret-form').onsubmit=e=>{e.preventDefault();const date=document.getElementById('rf-date').value,sid=Number(document.getElementById('rf-sweet').value),oid=Number(document.getElementById('rf-outlet').value),qty=parseFloat(document.getElementById('rf-qty').value),reason=document.getElementById('rf-reason').value;if(!date||!qty||qty<=0){showToast('Fill all fields','error');return;}store.returns.push({date,sweetId:sid,outletId:oid,qty,reason});saveStore();showToast(`Reported ${qty} kg ${getSweet(sid).name} as ${reason} at ${getOutlet(oid).name}`,reason==='Theft'?'warning':'error');renderReturns(c);};
+}
+
+/* ===== ANALYTICS ===== */
+function renderAnalytics(c){
+  c.innerHTML=`<div class="flex gap-2 mb-6 flex-wrap">
+    <button class="tab-btn active" onclick="showATab(this,'ranking')">Full Year Ranking</button>
+    <button class="tab-btn" onclick="showATab(this,'monthly')">Monthly Comparison</button>
+    <button class="tab-btn" onclick="showATab(this,'sweet')">Sweet Deep Dive</button>
+    <button class="tab-btn" onclick="showATab(this,'outlet')">Outlet Analysis</button>
+  </div><div id="atc"></div>`;
+  showATab(document.querySelector('.tab-btn.active'),'ranking');
+}
+function showATab(btn,tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  const c=document.getElementById('atc'),yr=todayStr().substring(0,4);
+  if(tab==='ranking'){
+    const yd={};SWEETS.forEach(s=>yd[s.id]={produced:0,supplied:0,sold:0,waste:0,revenue:0});
+    filterByYear(store.production,yr).forEach(r=>yd[r.sweetId].produced+=r.qty);
+    filterByYear(store.supply,yr).forEach(r=>yd[r.sweetId].supplied+=r.qty);
+    filterByYear(store.sales,yr).forEach(r=>{yd[r.sweetId].sold+=r.qty;yd[r.sweetId].revenue+=r.revenue;});
+    filterByYear(store.returns,yr).forEach(r=>yd[r.sweetId].waste+=r.qty);
+    const rk=SWEETS.map(s=>({...s,...yd[s.id],ur:yd[s.id].supplied>0?(yd[s.id].sold/yd[s.id].supplied*100).toFixed(1):0,wr:yd[s.id].supplied>0?(yd[s.id].waste/yd[s.id].supplied*100).toFixed(1):0})).sort((a,b)=>b.revenue-a.revenue);
+    c.innerHTML=`<div class="chart-card"><h3 class="text-sm font-bold mb-3">Sweet Performance — ${yr} (by Revenue)</h3><div style="overflow-x:auto"><table class="data-table"><thead><tr><th>#</th><th>Sweet</th><th>Category</th><th>Produced</th><th>Supplied</th><th>Sold</th><th>Waste</th><th>Revenue</th><th>Util.</th><th>Waste%</th></tr></thead><tbody>${rk.map((s,i)=>`<tr><td><span class="rank-num ${i<3?'rank-'+(i+1):'rank-other'}">${i+1}</span></td><td class="font-semibold">${s.name}</td><td><span class="badge badge-info">${s.cat}</span></td><td>${fmt(s.produced)}</td><td>${fmt(s.supplied)}</td><td style="color:var(--success);font-weight:600">${fmt(s.sold)}</td><td style="color:var(--danger)">${s.waste}</td><td class="font-bold">${fmtRs(s.revenue)}</td><td><span class="badge ${parseFloat(s.ur)>93?'badge-success':'badge-warning'}">${s.ur}%</span></td><td><span class="badge ${parseFloat(s.wr)>5?'badge-danger':'badge-success'}">${s.wr}%</span></td></tr>`).join('')}</tbody></table></div></div><div class="chart-card mt-4"><h3 class="text-sm font-bold mb-3">Sold vs Waste (Yearly)</h3><canvas id="rankChart" height="200"></canvas></div>`;
+    makeChart('rankChart',{type:'bar',data:{labels:rk.map(s=>s.name),datasets:[{label:'Sold',data:rk.map(s=>s.sold),backgroundColor:'rgba(46,125,50,0.8)',borderRadius:4},{label:'Waste',data:rk.map(s=>s.waste),backgroundColor:'rgba(198,40,40,0.8)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{x:{ticks:{font:{size:9},maxRotation:45}},y:{beginAtZero:true,ticks:{font:{size:10}}}}}});
+  } else if(tab==='monthly'){
+    c.innerHTML=`<div class="chart-card"><h3 class="text-sm font-bold mb-3">Monthly Production, Sales & Waste — ${yr}</h3><canvas id="monthlyComp" height="250"></canvas></div>`;
+    const lb=[],p=[],s=[],w=[];for(let m=0;m<12;m++){const my=yr+'-'+String(m+1).padStart(2,'0');lb.push(ENG_MONTHS[m]);p.push(sumQty(filterByMonth(store.production,my)));s.push(sumQty(filterByMonth(store.sales,my)));w.push(sumQty(filterByMonth(store.returns,my)));}
+    makeChart('monthlyComp',{type:'bar',data:{labels:lb,datasets:[{label:'Production',data:p,backgroundColor:'rgba(230,81,0,0.7)',borderRadius:4},{label:'Sold',data:s,backgroundColor:'rgba(46,125,50,0.7)',borderRadius:4},{label:'Waste',data:w,backgroundColor:'rgba(198,40,40,0.7)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{x:{ticks:{font:{size:10}}},y:{beginAtZero:true,ticks:{font:{size:10}}}}}});
+  } else if(tab==='sweet'){
+    c.innerHTML=`<div class="chart-card mb-4"><div class="flex items-center gap-3 mb-3"><label class="form-label mb-0">Select Sweet:</label><select class="form-input" style="width:220px" id="sweet-select" onchange="sweetDD()">${SWEETS.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div><div id="sdd"></div></div>`;sweetDD();
+  } else if(tab==='outlet'){
+    const od=OUTLETS.map(o=>{const ys=sumQty(filterByYear(store.supply,yr).filter(r=>r.outletId===o.id)),yso=sumQty(filterByYear(store.sales,yr).filter(r=>r.outletId===o.id)),yr2=sumRev(filterByYear(store.sales,yr).filter(r=>r.outletId===o.id)),yw=sumQty(filterByYear(store.returns,yr).filter(r=>r.outletId===o.id)),yt=sumQty(filterByYear(store.returns,yr).filter(r=>r.outletId===o.id&&r.reason==='Theft'));return{...o,supplied:ys,sold:yso,revenue:yr2,waste:yw,theft:yt,util:ys>0?(yso/ys*100).toFixed(1):0,wasteRate:ys>0?(yw/ys*100).toFixed(1):0,theftRate:ys>0?(yt/ys*100).toFixed(2):0};});
+    c.innerHTML=`<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">${od.map(o=>`<div class="kpi-card"><div class="flex items-center justify-between mb-2"><span class="font-bold">${o.name}</span><span class="badge badge-info">${o.code}</span></div><div class="text-sm"><span style="color:var(--muted)">Revenue:</span> <strong>${fmtRs(o.revenue)}</strong></div><div class="text-sm"><span style="color:var(--muted)">Supplied:</span> ${fmt(o.supplied)} kg</div><div class="text-sm"><span style="color:var(--muted)">Sold:</span> <span style="color:var(--success)">${fmt(o.sold)} kg (${o.util}%)</span></div><div class="text-sm"><span style="color:var(--muted)">Waste:</span> <span style="color:var(--danger)">${o.waste} kg (${o.wasteRate}%)</span></div><div class="text-sm"><span style="color:var(--muted)">Theft:</span> <span style="color:#6A1B9A;font-weight:600">${o.theft} kg (${o.theftRate}%)</span></div></div>`).join('')}</div><div class="chart-card"><h3 class="text-sm font-bold mb-3">Outlet Revenue Comparison (Monthly)</h3><canvas id="outletChart" height="200"></canvas></div>`;
+    const lb=[],d1=[],d2=[],d3=[];for(let i=11;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);const my=getMonthYear(d.toISOString());lb.push(ENG_MONTHS[d.getMonth()]);d1.push(sumRev(filterByMonth(store.sales,my).filter(r=>r.outletId===1)));d2.push(sumRev(filterByMonth(store.sales,my).filter(r=>r.outletId===2)));d3.push(sumRev(filterByMonth(store.sales,my).filter(r=>r.outletId===3)));}
+    makeChart('outletChart',{type:'line',data:{labels:lb,datasets:[{label:'Yogikuti',data:d1,borderColor:'#E65100',tension:0.4,pointRadius:3},{label:'Devinagar',data:d2,borderColor:'#F9A825',tension:0.4,pointRadius:3},{label:'Golpark',data:d3,borderColor:'#2E7D32',tension:0.4,pointRadius:3}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtRs(v),font:{size:10}}},x:{ticks:{font:{size:10}}}}}});
+  }
+}
+function sweetDD(){
+  const sid=Number(document.getElementById('sweet-select').value),sw=getSweet(sid),yr=todayStr().substring(0,4),dd=document.getElementById('sdd');
+  const mp=[],ms=[],mw=[];for(let m=0;m<12;m++){const my=yr+'-'+String(m+1).padStart(2,'0');mp.push(sumQty(filterByMonth(store.production,my).filter(r=>r.sweetId===sid)));ms.push(sumQty(filterByMonth(store.sales,my).filter(r=>r.sweetId===sid)));mw.push(sumQty(filterByMonth(store.returns,my).filter(r=>r.sweetId===sid)));}
+  let bm=0,wm=0;ms.forEach((v,i)=>{if(v>ms[bm])bm=i;if(v<ms[wm])wm=i;});
+  dd.innerHTML=`<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4"><div class="p-3 rounded-lg" style="background:#FFF3E0"><div class="text-xs" style="color:var(--muted)">Category</div><div class="font-bold text-sm">${sw.cat}</div></div><div class="p-3 rounded-lg" style="background:#E8F5E9"><div class="text-xs" style="color:var(--muted)">Best Month</div><div class="font-bold text-sm" style="color:var(--success)">${FULL_MONTHS[bm]}</div></div><div class="p-3 rounded-lg" style="background:#FFEBEE"><div class="text-xs" style="color:var(--muted)">Lowest Month</div><div class="font-bold text-sm" style="color:var(--danger)">${FULL_MONTHS[wm]}</div></div><div class="p-3 rounded-lg" style="background:#E3F2FD"><div class="text-xs" style="color:var(--muted)">Price</div><div class="font-bold text-sm">${fmtRs(sw.price)}/kg</div></div></div><canvas id="sweetDeepChart" height="200"></canvas>`;
+  makeChart('sweetDeepChart',{type:'bar',data:{labels:ENG_MONTHS,datasets:[{label:'Produced',data:mp,backgroundColor:'rgba(230,81,0,0.6)',borderRadius:4},{label:'Sold',data:ms,backgroundColor:'rgba(46,125,50,0.6)',borderRadius:4},{label:'Waste',data:mw,backgroundColor:'rgba(198,40,40,0.6)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{x:{ticks:{font:{size:10}}},y:{beginAtZero:true,ticks:{font:{size:10}}}}}});
+}
+
+/* ===== SEASONAL GUIDE ===== */
+function renderSeasonal(c){
+  const cm=new Date().getMonth(),nm=NEPALI_MONTHS[cm];
+  let season='Winter';if(cm>=2&&cm<=4)season='Spring/Pre-Monsoon';else if(cm>=5&&cm<=7)season='Monsoon';else if(cm>=8&&cm<=9)season='Festival Season';else if(cm>=10&&cm<=11)season='Post-Monsoon/Autumn';
+  const st={'Winter':{tip:'Focus on Gajar Halwa (carrot season), warm milk-based sweets. Demand is moderate but steady. Reduce seasonal items like Ghewar.',color:'#1565C0',icon:'snowflake'},'Spring/Pre-Monsoon':{tip:'Moderate demand. Prepare for Holi — increase Malpua and Gujiya production. Stock up on Kaju Katli for upcoming wedding season.',color:'#2E7D32',icon:'leaf'},'Monsoon':{tip:'Lower overall demand. Increase Rasgulla and Rasmalai. Watch for higher spoilage — reduce production by 20-30%. Monitor waste closely.',color:'#00838F',icon:'cloud-rain'},'Festival Season':{tip:'PEAK SEASON! Massively increase all sweet production. Kaju Katli and Motichoor Laddu for Dashain/Tihar gift boxes. Highest revenue months.',color:'#E65100',icon:'fire'},'Post-Monsoon/Autumn':{tip:'Demand normalizing after festivals. Clear remaining festival stock. Gradually return to standard production levels.',color:'#8D6E63',icon:'wind'}}[season];
+  const hd=SWEETS.map(s=>{const m=SEASON[s.id].map(v=>v),mx=Math.max(...m,0.01);return{name:s.name,vals:m.map(v=>v/mx)};});
+  const uf=FESTIVALS.filter(f=>f.month>=cm).slice(0,4);
+  const recs=[['Jan','Poush','Gajar Halwa, Peda, Besan Laddu','Ghewar, Malpua','Moderate'],['Feb','Magh','Peda, Gajar Halwa, Gulab Jamun','Ghewar, Cham Cham','Moderate-High'],['Mar','Falgun','Peda, Malpua, Gulab Jamun','Ghewar, Gajar Halwa','High (Holi/Shivaratri)'],['Apr','Chaitra','Kaju Katli, Rasgulla, Barfi','Ghewar, Gajar Halwa','Moderate (New Year)'],['May','Baisakh','Gulab Jamun, Jalebi, Barfi','Ghewar, Gajar Halwa','Moderate'],['Jun','Jestha','Rasgulla, Jalebi, Cham Cham','Ghewar, Kaju Katli','Low (Monsoon)'],['Jul','Ashadh','Rasgulla, Rasmalai, Cham Cham','Ghewar, Gajar Halwa','Low (Monsoon)'],['Aug','Shrawan','Ghewar, Besan Laddu, Rasgulla','Gajar Halwa','Rising (Teej)'],['Sep','Bhadra','ALL SWEETS — Mass Production','None — Peak Season','VERY HIGH (Dashain)'],['Oct','Ashwin','Kaju Katli, Motichoor Laddu, Soan Papdi','Ghewar','VERY HIGH (Tihar)'],['Nov','Kartik','Normal mix, Peda, Rasgulla','Ghewar, Seasonal items','Normalizing'],['Dec','Mangsir','Gajar Halwa, Besan Laddu, Peda','Ghewar, Malpua','Moderate (Winter)']];
+  c.innerHTML=`
+    <div class="season-alert mb-6" style="border-left:4px solid ${st.color}"><div class="flex items-center gap-3 mb-2"><i class="fas fa-${st.icon} text-xl" style="color:${st.color}"></i><div><div class="font-bold text-sm">${nm} (${FULL_MONTHS[cm]}) — ${season}</div><div class="text-sm mt-1">${st.tip}</div></div></div></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="chart-card lg:col-span-2"><h3 class="text-sm font-bold mb-3"><i class="fas fa-th mr-2" style="color:var(--accent)"></i>Demand Intensity Heatmap</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr><th style="text-align:left;padding:6px;min-width:100px"></th>${ENG_MONTHS.map(m=>`<th style="padding:4px;text-align:center;font-size:10px">${m}</th>`).join('')}</tr></thead><tbody>${hd.map(h=>`<tr><td style="padding:6px;font-weight:600;font-size:11px;white-space:nowrap">${h.name}</td>${h.vals.map(v=>{const bg=v<=0?'#F5F5F5':`rgba(230,81,0,${Math.max(0.08,v*0.9)})`,co=v>0.6?'#fff':(v<=0?'#ccc':'var(--fg)');return`<td style="padding:3px"><div class="heatmap-cell" style="background:${bg};color:${co}">${v<=0?'-':(v*100).toFixed(0)+'%'}</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div><div class="flex items-center gap-2 mt-3 text-xs" style="color:var(--muted)"><span>Low</span><div style="width:100px;height:8px;border-radius:4px;background:linear-gradient(to right,rgba(230,81,0,0.08),rgba(230,81,0,0.9))"></div><span>High</span></div></div>
+      <div class="chart-card"><h3 class="text-sm font-bold mb-3"><i class="fas fa-calendar mr-2" style="color:var(--gold)"></i>Upcoming Festivals</h3><div class="flex flex-col gap-3">${uf.map(f=>`<div class="festival-card"><div class="font-bold text-sm">${f.name}</div><div class="text-xs mt-1" style="color:var(--muted)">${ENG_MONTHS[f.month]} / ${NEPALI_MONTHS[f.month]}</div><div class="text-xs mt-1"><strong>Key Sweets:</strong> ${f.sweets}</div><div class="mt-1"><span class="badge ${f.demand.includes('VERY')?'badge-danger':f.demand==='High'?'badge-warning':'badge-info'}">${f.demand}</span></div></div>`).join('')}</div></div>
+    </div>
+    <div class="chart-card mb-6"><h3 class="text-sm font-bold mb-3"><i class="fas fa-lightbulb mr-2" style="color:var(--gold)"></i>Production Recommendations by Month</h3><div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Month</th><th>Nepali Month</th><th>Top Sweets to Produce</th><th>Sweets to Reduce</th><th>Demand</th></tr></thead><tbody>${recs.map((r,i)=>`<tr style="${i===cm?'background:#FFF8E0;font-weight:600':''}"><td>${r[0]}</td><td>${r[1]}</td><td style="color:var(--success)">${r[2]}</td><td style="color:var(--danger)">${r[3]}</td><td><span class="badge ${r[4].includes('VERY')?'badge-danger':r[4].includes('High')?'badge-warning':r[4].includes('Low')?'badge-danger':'badge-info'}">${r[4]}</span></td></tr>`).join('')}</tbody></table></div></div>
+    <div class="chart-card"><h3 class="text-sm font-bold mb-3"><i class="fas fa-star mr-2" style="color:var(--gold)"></i>Complete Festival Reference</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${FESTIVALS.map(f=>`<div class="festival-card"><div class="flex items-center justify-between"><span class="font-bold text-sm">${f.name}</span><span class="badge ${f.demand.includes('VERY')?'badge-danger':f.demand==='High'?'badge-warning':'badge-info'}">${f.demand}</span></div><div class="text-xs mt-1" style="color:var(--muted)">${ENG_MONTHS[f.month]} / ${NEPALI_MONTHS[f.month]}</div><div class="text-xs mt-1">${f.sweets}</div></div>`).join('')}</div></div>`;
+}
+
+/* ===== DELETE RECORD ===== */
+function delRec(type,idx,date){
+  const arr=store[type].filter(r=>r.date===date);
+  if(arr[idx]){const gi=store[type].indexOf(arr[idx]);if(gi>-1){store[type].splice(gi,1);saveStore();showToast('Record deleted','warning');renderPage(currentPage);}}
+}
+
+/* ===== INIT ===== */
+document.getElementById('global-date').value=todayStr();
+if(!loadStore()) generateSampleData();
+renderPage('dashboard');
+</script>
+
+
+			
+		
+</body></html>
